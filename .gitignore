@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Environment
+.env
+.env.local
+
+# Models cache (BGE-M3 is ~2GB)
+.cache/
+models/
+*.bin
+*.safetensors
+
+# Docker volumes
+postgres_data/
+qdrant_data/
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
