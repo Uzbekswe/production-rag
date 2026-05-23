@@ -161,13 +161,46 @@ def _mean_score(val) -> float | None:
 
 
 def make_evaluator_llm():
+    """
+    VESSL-first, Groq-fallback — same priority logic as enricher.py.
+
+    VESSL (set VESSL_ENDPOINT + VESSL_TOKEN in .env):
+      - OpenAI-compatible vLLM endpoint, no TPD limit, GPU billed per hour
+      - Model: VESSL_MODEL env var (default Qwen/Qwen2.5-14B-Instruct)
+
+    Groq fallback (GROQ_API_KEY):
+      - llama-3.3-70b-versatile via RAGAS_JUDGE_MODEL env var
+      - 100K tokens/day rolling limit — subject to exhaustion
+    """
     from ragas.llms import LangchainLLMWrapper
     from langchain_openai import ChatOpenAI
 
-    if not GROQ_API_KEY:
-        raise ValueError("GROQ_API_KEY not set — needed for RAGAS judge LLM")
+    vessl_endpoint = os.getenv("VESSL_ENDPOINT")
+    vessl_token    = os.getenv("VESSL_TOKEN")
+    vessl_model    = os.getenv("VESSL_MODEL", "Qwen/Qwen2.5-14B-Instruct")
 
+    if vessl_endpoint and vessl_token:
+        print(f"  Judge backend : VESSL  ({vessl_endpoint})")
+        print(f"  Judge model   : {vessl_model}")
+        return LangchainLLMWrapper(
+            ChatOpenAI(
+                model=vessl_model,
+                openai_api_key=vessl_token,
+                openai_api_base=f"{vessl_endpoint}/v1",
+                temperature=0,
+                max_retries=3,
+                request_timeout=180,
+            )
+        )
+
+    if not GROQ_API_KEY:
+        raise ValueError(
+            "No judge LLM configured: set VESSL_ENDPOINT+VESSL_TOKEN (recommended) "
+            "or GROQ_API_KEY (subject to 100K TPD limit)"
+        )
     model = os.getenv("RAGAS_JUDGE_MODEL", "llama-3.3-70b-versatile")
+    print(f"  Judge backend : Groq  (TPD-limited — set VESSL_ENDPOINT to avoid this)")
+    print(f"  Judge model   : {model}")
     return LangchainLLMWrapper(
         ChatOpenAI(
             model=model,
