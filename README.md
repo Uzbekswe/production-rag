@@ -1,20 +1,43 @@
-# Production-Grade Agentic RAG System
+# Agentic RAG for SEC 10-K Filings
 
-A fully production-ready Retrieval-Augmented Generation system for querying SEC 10-K filings (Apple, Google, Meta, Microsoft, NVIDIA). Built over 4 phases with real-world engineering patterns: Contextual Retrieval, hybrid dense+sparse search, LangGraph agent, inline citations, SSE streaming, full observability stack, and a CI-gated RAGAS evaluation harness.
+A production-grade Retrieval-Augmented Generation system that answers questions about SEC annual reports using hybrid search, a LangGraph reasoning agent, and a fully automated RAGAS evaluation pipeline.
 
-## Numbers
+Built in 4 phases to demonstrate real-world ML engineering: not just "make a RAG chatbot", but instrument it, measure it, find what breaks, and fix it with evidence.
 
-| Metric | Value |
-|---|---|
-| Documents ingested | 10 SEC 10-K filings (FY2024 + FY2025) |
-| Total chunks | 12,927 |
-| Qdrant vectors | 12,927 (BGE-M3 1024-dim) |
-| RAGAS Faithfulness | **0.474** (Qwen2.5-14B judge) |
-| RAGAS Context Recall | **0.277** |
-| RAGAS Factual Correctness | **0.299** |
-| Golden questions | 50 (factual / analytical / multi-hop / adversarial) |
-| CI gate | faithfulness ≥ 0.40 (Qwen-calibrated) — **PASSED** |
-| Eval runtime | ~14 min (VESSL A100 judge, 50 questions) |
+---
+
+## The Problem
+
+SEC 10-K filings are dense, structured, and full of intentional gaps. Apple's 2024 annual report is 88 pages. Answering "What was Apple's gross margin improvement between FY2023 and FY2024, and how did it compare to the Services segment margin trend?" requires:
+
+- Finding the right numbers across multiple sections of the document
+- Understanding that "gross margin %" and "gross margin dollars" are different things
+- Knowing that Apple stopped disclosing iPhone unit sales in FY2019 (so some questions have correct non-answers)
+- Correctly citing the source so the answer is auditable
+
+Naive RAG — embed, chunk, nearest-neighbour retrieval, generate — fails on all of these. This project builds the infrastructure to handle them properly.
+
+**Corpus:** 10 SEC 10-K filings — Apple, Google, Meta, Microsoft, NVIDIA — FY2024 and FY2025.
+**Scale:** 12,927 chunks, 12,927 Qdrant vectors, 3 LLMs across ingestion / generation / evaluation.
+
+---
+
+## Results
+
+All three RAGAS metrics improved between baseline and final run. Every improvement is traced to a specific, diagnosable root cause — not tuning hyperparameters until numbers looked better.
+
+| Metric | Baseline | Final | Change | Root cause fixed |
+|---|---|---|---|---|
+| **Faithfulness** | 0.406 | **0.474** | +16.8% | adversarial prompt hallucination |
+| **Context Recall** | 0.243 | **0.277** | +13.9% | reranker top-K too aggressive |
+| **Factual Correctness** | 0.265 | **0.299** | +13.0% | stale "I don't know" answers in cache |
+| Samples scored | 45 / 50 | **50 / 50** | +5 | NaN detection fix in runner |
+
+**CI gate: PASSED** — `faithfulness ≥ 0.40` (Qwen-calibrated; GPT-4 equivalent ≈ `faithfulness ≥ 0.75`).
+
+*Judge model: Qwen2.5-14B-Instruct on VESSL A100 (no API rate limits). Three metrics: faithfulness, context recall, factual correctness. 50 golden questions across factual / analytical / multi-hop / adversarial categories.*
+
+---
 
 ## Architecture
 
@@ -25,246 +48,273 @@ A fully production-ready Retrieval-Augmented Generation system for querying SEC 
                     │  GET  /api/v1/stream   GET  /metrics        │
                     └────────────┬──────────────────┬─────────────┘
                                  │                  │
-              ┌──────────────────▼───┐     ┌────────▼──────────────────────┐
-              │  Ingestion Pipeline  │     │     LangGraph Query Agent     │
-              │                      │     │                               │
-              │  1. Docling parse    │     │  retrieve → grade → rerank    │
-              │  2. Semantic chunk   │     │  → reflect → generate         │
-              │  3. Context enrich   │     │       (5 nodes)               │
-              │     (VESSL/Groq LLM) │     └────────┬──────────────────────┘
-              │  4. BGE-M3 embed     │              │
-              │  5. Qdrant upsert    │     ┌────────▼──────────────────────┐
-              │  6. BM25 rebuild     │     │         Hybrid Retrieval      │
-              │  7. Postgres persist │     │                               │
-              └──────────────────────┘     │  Dense: BGE-M3 (Qdrant ANN)  │
-                                           │  Sparse: BM25 (keyword)      │
-              ┌───────────────────────┐    │  Fusion: Reciprocal Rank     │
-              │  Observability Stack  │    │  Rerank: BGE-reranker-v2-m3  │
-              │                       │    │  Top-K: 8 chunks              │
-              │  Langfuse (traces)    │    └────────┬──────────────────────┘
-              │  Prometheus (metrics) │             │
-              │  Grafana (dashboard)  │    ┌────────▼──────────────────────┐
-              │  SSE (streaming)      │    │  Generation + Citations       │
-              └───────────────────────┘    │  VESSL Qwen2.5-14B (primary) │
-                                           │  Groq llama-3.1-8b (fallback)│
-              ┌───────────────────────┐    │  Inline [Source N] citations  │
-              │  Evaluation Harness   │    │  Semantic cache (Redis)       │
-              │                       │    └───────────────────────────────┘
-              │  50 golden questions  │
-              │  RAGAS (3 metrics)    │
-              │  Checkpoint + resume  │
-              │  CI gate (GitHub CI)  │
-              └───────────────────────┘
+       ┌─────────────────────────▼────┐    ┌────────▼──────────────────────────┐
+       │      Ingestion Pipeline      │    │       LangGraph Query Agent       │
+       │                              │    │                                   │
+       │  1. Docling PDF parse        │    │  ┌─────────────────────────────┐  │
+       │  2. Semantic chunking        │    │  │  retrieve (dense + sparse)  │  │
+       │  3. Contextual Retrieval     │    │  │        ↓                    │  │
+       │     (LLM context blurb       │    │  │  grade (sufficiency check)  │  │
+       │      per chunk, VESSL A100)  │    │  │        ↓                    │  │
+       │  4. BGE-M3 embed             │    │  │  rerank (cross-encoder)     │  │
+       │  5. Qdrant upsert (batched)  │    │  │        ↓                    │  │
+       │  6. BM25 rebuild             │    │  │  reflect (rewrite query?)   │  │
+       │  7. Postgres persist         │    │  │        ↓                    │  │
+       └──────────────────────────────┘    │  │  generate + cite            │  │
+                                           │  └─────────────────────────────┘  │
+       ┌──────────────────────────────┐    └────────┬──────────────────────────┘
+       │      Observability Stack     │             │
+       │                              │    ┌────────▼──────────────────────────┐
+       │  Langfuse  (per-node traces) │    │         Hybrid Retrieval          │
+       │  Prometheus (metrics)        │    │                                   │
+       │  Grafana   (dashboard)       │    │  Dense:  BGE-M3 → Qdrant ANN     │
+       │  SSE       (token streaming) │    │  Sparse: BM25 keyword index       │
+       └──────────────────────────────┘    │  Fusion: Reciprocal Rank (k=60)  │
+                                           │  Rerank: BGE-reranker-v2-m3      │
+       ┌──────────────────────────────┐    │  Top-K:  8 chunks to generator   │
+       │      Evaluation Harness      │    └────────┬──────────────────────────┘
+       │                              │             │
+       │  50 golden Q&A pairs         │    ┌────────▼──────────────────────────┐
+       │  RAGAS (3 LLM-based metrics) │    │    Generation + Citations         │
+       │  VESSL judge (no TPD limits) │    │                                   │
+       │  Checkpoint-aware runner     │    │  VESSL Qwen2.5-14B (primary)     │
+       │  CI gate (GitHub Actions)    │    │  Groq llama-3.1-8b (fallback)    │
+       └──────────────────────────────┘    │  Redis semantic cache (≥0.95 cos) │
+                                           └───────────────────────────────────┘
 ```
+
+**Data flow (query path):**
+1. Query arrives at FastAPI → semantic cache check (Redis, cosine sim ≥ 0.95 → return instantly)
+2. LangGraph agent starts: dense retrieval (Qdrant ANN) + sparse retrieval (BM25) run in parallel
+3. RRF fusion merges ranked lists from both modalities without score normalization
+4. BGE cross-encoder reranks top-50 candidates → top-8 passed to the generator
+5. Sufficiency check: if top chunks don't cover the query, agent rewrites the query and retries (max 2)
+6. Qwen2.5-14B (VESSL) or Groq generates a JSON response with inline `[Source N]` citations
+7. Citation metadata (filename, page, verbatim excerpt) mapped back to chunk records and returned
+8. Langfuse captures the full trace; Prometheus increments latency histogram
+
+---
+
+## Key Engineering Decisions
+
+### 1. Contextual Retrieval over naive chunking
+
+The standard approach — split document into fixed-size chunks, embed, retrieve — fails because chunks lose their document context. A chunk saying *"Revenue increased 12% year-over-year"* tells you nothing about which company, which segment, or which year without surrounding context.
+
+**Decision:** Before embedding each chunk, an LLM (Qwen2.5-14B on VESSL) generates an 80-100 token summary of where that chunk sits in the document: *"This chunk describes Apple's iPhone revenue for FY2024, from the Product Net Sales table in the MD&A section."* That summary is prepended to the chunk text before embedding. The document-aware context is now baked into every vector.
+
+This is Anthropic's Contextual Retrieval pattern. Their published results show a 67% reduction in retrieval failures. The tradeoff is ingestion cost: one LLM call per chunk, which at 12,927 chunks requires a GPU endpoint rather than a rate-limited API.
+
+---
+
+### 2. Reciprocal Rank Fusion over score-normalized fusion
+
+Combining dense (cosine similarity) and sparse (BM25) scores requires a merge strategy. Score normalization is the obvious choice — normalize both to [0,1], take a weighted average. The problem: the score distributions of BGE-M3 and BM25 are incomparable. A cosine similarity of 0.82 and a BM25 score of 14.3 tell you nothing about their relative quality.
+
+**Decision:** RRF merges by *rank* rather than score. `score(d) = Σ 1/(k + rank_i(d))` for each retrieval system i, where k=60 dampens sensitivity to top-rank differences. This works because ranks are always comparable across retrieval systems, regardless of how scores are distributed.
+
+RRF was introduced by Cormack et al. (2009) as a parameter-free fusion method that consistently outperforms score-based fusion without requiring calibration.
+
+---
+
+### 3. Cross-encoder reranker as a deliberate two-pass system
+
+Bi-encoders (BGE-M3) embed query and document *independently*. This is what makes ANN retrieval fast — you precompute document embeddings offline. But it's an approximation: the model never sees the query and document together.
+
+Cross-encoders read query and document jointly, which is dramatically more accurate but requires one forward pass per candidate — too slow for retrieval over 12,000 vectors.
+
+**Decision:** Use both. BGE-M3 retrieves the top-50 candidates fast. BGE-reranker-v2-m3 (568M parameter cross-encoder) rescores those 50 with full query-document attention. The top-8 survivors go to the generator. This is the industry-standard pattern: cheap retrieval, expensive reranking on a small candidate set.
+
+Reranker runs in a thread pool to avoid blocking the FastAPI async event loop.
+
+---
+
+### 4. LangGraph for conditional retry instead of a linear chain
+
+A linear chain (retrieve → rerank → generate) has no mechanism for handling low-confidence retrievals. If the top chunks don't actually answer the question, the generator hallucinates or refuses — and the system just returns that.
+
+**Decision:** The query pipeline is a 5-node LangGraph graph with a conditional retry edge. After retrieval and reranking, a sufficiency checker grades the chunks against the query. If confidence is low, the agent rewrites the query (via an LLM call) and re-retrieves. Maximum 2 retries. The retry branch is a first-class node in the graph, not a special case in application code.
+
+This makes the retry logic explicit, testable, and traceable (each node gets its own Langfuse span with latency).
+
+---
+
+### 5. VESSL A100 for LLM inference instead of API-only
+
+Groq's free tier limits: `llama-3.3-70b-versatile` has 100K tokens/day (rolling 24-hour window), `llama-3.1-8b-instant` has 500K. A 50-question RAGAS evaluation uses ~270K tokens for both generation and judging. Three evaluation runs exhausted both models' daily quotas before a single complete run finished.
+
+**Decision:** Deploy Qwen2.5-14B-Instruct on a VESSL A100 SXM using vLLM's OpenAI-compatible endpoint. Both the generation service and the RAGAS runner use VESSL-first routing: if `VESSL_ENDPOINT` + `VESSL_TOKEN` are set, use VESSL; otherwise fall back to Groq. No TPD limits. The A100 costs ~$1.55/hr — a full 50-question eval run costs roughly $0.40 in GPU time.
+
+The same pattern is used in three places: `enricher.py`, `groq_gen.py`, and `evaluation/runner.py`. All follow the same priority: VESSL → Groq.
+
+---
+
+### 6. Checkpoint-aware evaluation runner
+
+A RAGAS run over 50 questions with a 14B judge takes ~15 minutes and ~270K tokens. RAGAS calls the judge LLM 3 times per sample (once per metric), so 50 samples = 150 LLM calls. If the runner crashes at sample 40 — rate limit, network error, killed process — you lose everything.
+
+**Decision:** After each batch of 10 samples, append scores to a JSONL checkpoint file. On restart, load the checkpoint and skip already-scored indices. Maximum work lost: 10 samples. The checkpoint is deleted automatically on a successful full run.
+
+This also caught a subtle bug during development: RAGAS returns `float('nan')` for failed metric calls, not `None`. An `is not None` check silently treats NaN as a valid score, causing the runner to report "10 scored, 0 failed" even when 70% of samples had no real score. Fixed by normalizing `float('nan') → None` at the point of extraction.
+
+---
+
+### 7. Adversarial system prompt hardening
+
+Financial 10-K filings contain deliberate omissions. Apple stopped reporting iPhone, iPad, and Mac unit sales after FY2018. No 10-K includes forward-looking revenue guidance or daily stock prices. Without explicit instruction, the LLM finds adjacent numerical context and constructs a plausible-sounding but wrong answer.
+
+**Decision:** Add an explicit non-disclosure rule to the system prompt listing the specific categories of information that companies withhold by policy. For these queries, the model responds: *"This information is not disclosed in the company's 10-K annual filing."* This is domain knowledge that only surfaces through adversarial evaluation — the adversarial faithfulness score of 0.143 in the baseline was the signal.
+
+Faithfulness improved 16.8% overall. Adversarial handling was the largest single contributor.
+
+---
+
+## What I Would Improve Next
+
+These are genuine limitations, not theoretical concerns. Each one has a specific eval signal that points to it.
+
+### 1. Query decomposition for analytical questions
+
+Context recall for analytical questions is 0.164 — the lowest of any category. The reason: analytical questions like *"What was Apple's capital return activity and how did it compare to R&D investment?"* need 4–5 distinct data points from different sections. A single retrieval step can't collect all of them. The fix is query decomposition: break the question into atomic sub-queries, retrieve independently, compose the answer. Requires a planning step before retrieval.
+
+### 2. Expand the golden dataset beyond Apple
+
+All 50 current golden questions are AAPL-focused. A production evaluation set would include cross-company comparisons (*"Which company had the highest R&D-to-revenue ratio among FAANG in FY2024?"*), temporal questions (*"How did NVIDIA's data center revenue growth compare in FY2024 vs FY2025?"*), and true multi-hop questions that require linking filings from different companies. 50 questions is also statistically thin — the margin of error at this sample size means a 3-question swing can look meaningful when it's noise.
+
+### 3. Stronger judge model for calibrated evaluation
+
+Qwen2.5-14B is directionally valid (run-to-run comparisons are meaningful) but scores ~50–60% of GPT-4 for equivalent system quality. The CI gate is calibrated accordingly (`faithfulness ≥ 0.40`), but this makes it hard to compare against published benchmarks. The right upgrade path, in order of effort: Qwen2.5-72B-AWQ on the same A100 (fits at ~36GB VRAM), then Prometheus-2-7B (7B model fine-tuned specifically to match GPT-4 judgment quality on a held-out eval benchmark).
+
+### 4. Re-ranking diversity to reduce chunk redundancy
+
+The top-8 chunks passed to the generator can be highly redundant — the same table cited five different ways, or the same paragraph appearing in the context window and in a footnote. Maximal Marginal Relevance (MMR) or similar diversity-aware reranking would ensure the 8 chunks cover different aspects of the answer, improving recall for multi-point questions without increasing the context window.
+
+### 5. Domain-adapted embeddings
+
+BGE-M3 is a strong general-purpose multilingual embedding model, but it was not trained on SEC filings. Financial terminology has specific connotations: *"provision"* means something very different in accounting vs everyday usage. Fine-tuning on (query, relevant-chunk) pairs mined from this corpus — using synthetic hard negatives from the same filings — would improve retrieval precision for domain-specific vocabulary.
+
+---
 
 ## Stack
 
-| Layer | Technology |
-|---|---|
-| API | FastAPI + uvicorn |
-| Orchestration | LangGraph |
-| Embeddings | `BAAI/bge-m3` (1024-dim, local) |
-| Reranker | `BAAI/bge-reranker-v2-m3` (local, top-8) |
-| Vector DB | Qdrant (self-hosted Docker) |
-| Keyword search | BM25 (rank-bm25, self-healing) |
-| LLM (generation) | VESSL Qwen2.5-14B (primary) / Groq (fallback) |
-| LLM (enrichment) | VESSL A100 + vLLM + Qwen2.5-14B |
-| LLM (eval judge) | VESSL Qwen2.5-14B (no TPD limits) |
-| Caching | Redis (semantic similarity ≥ 0.95) |
-| Tracing | Langfuse (self-hosted) |
-| Metrics | Prometheus + Grafana |
-| Streaming | Server-Sent Events |
-| Evaluation | RAGAS 0.2 (faithfulness, context recall, factual correctness) |
-| CI | GitHub Actions |
-| Database | PostgreSQL + SQLAlchemy (async) |
-| Document parsing | Docling (PDF) + BeautifulSoup (HTML) |
+| Layer | Technology | Why |
+|---|---|---|
+| API | FastAPI + uvicorn | async-native, OpenAPI docs built in |
+| Orchestration | LangGraph | conditional retry edges, per-node tracing |
+| Embeddings | `BAAI/bge-m3` (1024-dim, local) | top multilingual bi-encoder, no API dependency |
+| Reranker | `BAAI/bge-reranker-v2-m3` (local) | best open-source cross-encoder at this size |
+| Vector DB | Qdrant (Docker) | supports payload filtering, fast ANN |
+| Keyword search | BM25 (rank-bm25) | complementary to dense; exact-match recall |
+| LLM (generation) | VESSL Qwen2.5-14B / Groq (fallback) | no TPD limits on VESSL; Groq as cheap fallback |
+| LLM (eval judge) | VESSL Qwen2.5-14B | same endpoint; RAGAS-compatible |
+| Caching | Redis (semantic similarity) | cosine ≥ 0.95 → instant cache hit |
+| Tracing | Langfuse (self-hosted) | per-node spans, latency breakdown |
+| Metrics | Prometheus + Grafana | query counts, latency histograms, cache hit rate |
+| Streaming | Server-Sent Events | token-by-token streaming without WebSocket complexity |
+| Evaluation | RAGAS 0.2 | faithfulness, context recall, factual correctness |
+| CI | GitHub Actions | gate on faithfulness regression |
+| Database | PostgreSQL + SQLAlchemy (async) | source of truth for chunks; BM25 rebuilds from it |
+| Parsing | Docling (PDF) + BeautifulSoup (HTML) | structure-aware PDF; handles SEC EDGAR HTML filings |
 
-## What Makes It Production-Grade
-
-**Contextual Retrieval** — Each chunk gets an LLM-generated 80-100 token context blurb prepended before embedding. Anthropic's technique that reduces retrieval failure by 67% by giving chunks document-level context they'd otherwise lack.
-
-**Hybrid retrieval + RRF fusion** — Dense BGE-M3 vectors and sparse BM25 keyword index queried independently. Results merged with Reciprocal Rank Fusion (rank-weighted, not score-weighted) so neither modality dominates.
-
-**Cross-encoder reranker** — Top-50 RRF candidates reranked by BGE-reranker-v2-m3. Top 8 passed to the generator (increased from 5 after eval showed recall gains on multi-point answers).
-
-**BM25 self-healing** — On startup, if the BM25 pickle is missing (cold machine, volume wipe), the server auto-rebuilds it from Postgres. Postgres is truth; the pickle is a cache.
-
-**Qdrant batch upsert** — Single upsert with 1,800+ large-payload points exceeds gRPC's ~4MB message limit and fails silently. Fixed by batching at 200 points/call.
-
-**Semantic cache** — Redis stores recent query embeddings. Cosine similarity ≥ 0.95 → return cached answer instantly. Reduces LLM calls and P95 latency on repeated queries.
-
-**LangGraph reflection loop** — The query agent detects low-confidence retrievals and re-queries with a reformulated question before generating. 5-node graph: retrieve → grade → rerank → reflect → generate.
-
-**Non-disclosure system prompt** — The generator explicitly refuses to fabricate answers for information companies withhold by policy (unit sales, forward guidance, stock prices) rather than hallucinating from adjacent context. This is detectable at eval time: adversarial faithfulness is the canary.
-
-**Full observability** — Every query produces a Langfuse trace with per-node spans. Prometheus tracks `rag_queries_total`, `rag_query_latency_seconds`, `rag_cache_hits_total`. Grafana dashboard pre-built.
-
-**RAGAS CI gate** — Every PR runs the 50-question golden evaluation via GitHub Actions. Checkpoint-aware: each batch of 10 is saved immediately so the runner resumes after any crash or rate-limit kill without re-scoring completed samples. VESSL-first judge routing eliminates TPD exhaustion.
-
-## Evaluation Summary
-
-Three evaluation iterations were run after the full system was built. All used VESSL Qwen2.5-14B as the judge (no Groq TPD limits):
-
-| Run | Faithfulness | Recall | Factual | Notes |
-|---|---|---|---|---|
-| Baseline | 0.406 | 0.243 | 0.265 | stale cache flushed, old prompt, top-K=5 |
-| **Final** | **0.474** | **0.277** | **0.299** | prompt fix + top-K=8 + clean cache |
-| **Delta** | **+16.8%** | **+13.9%** | **+13.0%** | |
-
-**What drove the gains:**
-
-- *Adversarial prompt fix (+faith)* — The generator was answering "how many iPhones were sold?" instead of stating that Apple stopped disclosing unit sales in FY2019. An explicit non-disclosure rule in the system prompt corrected this. Adversarial faithfulness (the hardest category) was the primary driver.
-- *Reranker top-K 5 → 8 (+recall)* — Multi-point ground truth answers require data from multiple chunks. Expanding the context window passed to the generator improved recall across all non-adversarial categories without increasing latency meaningfully.
-- *Cache flush (+all metrics)* — A prior eval run during Groq rate-limit failures had cached "sources do not contain information" responses for basic factual queries. Those stale entries scored 0 on every metric until flushed.
-
-**Calibration context:** Qwen2.5-14B scores ~50–60% of GPT-4 levels for equivalent system quality. The CI gate is set at `faithfulness ≥ 0.40` accordingly. Production targets with a GPT-4-class judge would be faithfulness ≥ 0.75. The next step for higher absolute scores is switching to Qwen2.5-72B-AWQ on the same A100 (fits at ~36GB VRAM) or Prometheus-2-7B (purpose-built evaluation model).
+---
 
 ## Quick Start
 
 ```bash
 # 1. Clone and configure
-cp .env.example .env    # fill in GROQ_API_KEY (and VESSL_ENDPOINT for GPU judge)
+git clone https://github.com/Uzbekswe/production-rag.git && cd production-rag
+cp .env.example .env   # add GROQ_API_KEY; optionally VESSL_ENDPOINT + VESSL_TOKEN
 
-# 2. Start infrastructure (Postgres, Qdrant, Redis, Langfuse, Prometheus, Grafana)
-docker compose up -d
+# 2. Start infrastructure
+docker compose up -d   # Postgres, Qdrant, Redis, Langfuse, Prometheus, Grafana
 
-# 3. Install Python dependencies
+# 3. Install dependencies
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
 # 4. Start the API
 uvicorn app.main:app --reload
-
-# 5. Verify startup
-curl http://localhost:8000/health
-# → {"status":"ok","uptime_seconds":...}
-# Log: startup_complete  qdrant_vectors=12927  bm25_chunks=12927  bm25_ready=True
+# Startup log: startup_complete  qdrant_vectors=12927  bm25_chunks=12927  bm25_ready=True
 ```
 
-## Ingest a Document
-
-```bash
-curl -X POST http://localhost:8000/api/v1/ingest \
-  -F "file=@your_document.pdf"
-# → {"doc_id": "...", "status": "processing"}
-
-curl http://localhost:8000/api/v1/documents
-# → list of documents with status: processing → ready
-```
-
-## Query
+## Query the API
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/query \
   -H "Content-Type: application/json" \
-  -d '{"query": "What was Apple total revenue in fiscal year 2024?"}'
+  -d '{"query": "What was Apple gross margin percentage in fiscal year 2024 and how did it change from 2023?"}'
 ```
 
-Response includes `answer`, `citations` (with `filename`, `page_num`, `cited_text`), `from_cache`, and `latency_ms`.
-
-## Stream (SSE)
-
-```bash
-curl -N -X POST http://localhost:8000/api/v1/query/stream \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Summarize Apple revenue trends 2024 vs 2023"}'
+```json
+{
+  "answer": "Apple's gross margin was 46.2% in FY2024, up from 44.1% in FY2023 [Source 1]. The improvement was driven primarily by Services segment margin expansion, partially offset by product mix shift [Source 2].",
+  "citations": [
+    {"source_id": 1, "filename": "AAPL_10K_2024.pdf", "page_num": 31, "cited_text": "..."},
+    {"source_id": 2, "filename": "AAPL_10K_2024.pdf", "page_num": 33, "cited_text": "..."}
+  ],
+  "from_cache": false,
+  "latency_ms": 1843
+}
 ```
 
 ## Run Evaluation
 
 ```bash
-# Full 50-question RAGAS evaluation (~14 min with VESSL judge)
+# Full 50-question RAGAS eval (~14 min with VESSL judge)
 python evaluation/runner.py --output results.json --save
 
-# Subset by category
-python evaluation/runner.py --category factual --limit 10
-
-# Resume after partial failure (checkpoint-aware — no re-scoring)
+# Resume after any failure — checkpoint-aware, no re-scoring
 python evaluation/runner.py --output results.json --save
+
+# Category deep-dive
+python evaluation/runner.py --category adversarial
 ```
 
-## Key URLs
+## Service URLs
 
 | Service | URL |
 |---|---|
-| API docs (Swagger) | http://localhost:8000/docs |
+| API (Swagger) | http://localhost:8000/docs |
 | Prometheus metrics | http://localhost:8000/metrics |
 | Langfuse traces | http://localhost:3000 |
-| Prometheus | http://localhost:9090 |
-| Grafana | http://localhost:3001 (admin/admin) |
+| Grafana dashboard | http://localhost:3001 (admin / admin) |
 | Qdrant UI | http://localhost:6333/dashboard |
+
+---
 
 ## Project Structure
 
 ```
 production-rag/
 ├── app/
-│   ├── api/routes/
-│   │   ├── ingest.py          POST /api/v1/ingest
-│   │   ├── query.py           POST /api/v1/query
-│   │   ├── stream.py          POST /api/v1/query/stream (SSE)
-│   │   ├── documents.py       GET  /api/v1/documents
-│   │   └── eval.py            GET  /api/v1/eval/run + /history
-│   ├── core/
-│   │   ├── config.py          All settings (reads .env)
-│   │   ├── metrics.py         Prometheus counters/histograms
-│   │   ├── redis_client.py    Semantic cache
-│   │   └── tracing.py         Langfuse integration
+│   ├── api/routes/          # ingest, query, stream (SSE), documents, eval
+│   ├── core/                # config, metrics (Prometheus), Redis cache, Langfuse
 │   ├── services/
-│   │   ├── ingestion/
-│   │   │   ├── pipeline.py    Orchestrates 7-step ingestion
-│   │   │   ├── parser.py      Docling + BeautifulSoup
-│   │   │   ├── chunker.py     RecursiveCharacterTextSplitter
-│   │   │   ├── enricher.py    Contextual Retrieval (LLM blurbs)
-│   │   │   ├── embedder.py    BGE-M3 async batching
-│   │   │   └── bm25_indexer.py BM25 with self-healing
-│   │   ├── retrieval/
-│   │   │   ├── dense.py       Qdrant ANN search
-│   │   │   ├── sparse.py      BM25 search
-│   │   │   ├── fusion.py      RRF merge
-│   │   │   └── reranker.py    BGE cross-encoder (top-8)
-│   │   ├── generation/
-│   │   │   ├── groq_gen.py    VESSL/Groq LLM + citation extraction
-│   │   │   ├── longcite.py    LongCite citation format
-│   │   │   └── router.py      Generation strategy selector
-│   │   └── agent/
-│   │       ├── graph.py       LangGraph pipeline definition
-│   │       └── nodes.py       5 nodes with Langfuse spans
-│   ├── repositories/
-│   │   ├── document_repo.py
-│   │   ├── chunk_repo.py
-│   │   └── eval_repo.py
-│   └── workers/
-│       └── ingest_worker.py   Background ingestion task
+│   │   ├── ingestion/       # pipeline, parser, chunker, enricher, embedder, BM25
+│   │   ├── retrieval/       # dense (Qdrant), sparse (BM25), RRF fusion, reranker
+│   │   ├── generation/      # VESSL/Groq generator, citation extraction, router
+│   │   └── agent/           # LangGraph graph + 5 nodes with Langfuse spans
+│   ├── repositories/        # Postgres: documents, chunks, eval_runs
+│   └── workers/             # background ingestion task
 ├── evaluation/
-│   ├── golden_dataset.json    50 Q&A pairs (AAPL FY2024)
-│   ├── runner.py              RAGAS runner, VESSL judge, CI gate, checkpoint
-│   └── report.py              Terminal table formatter
-├── scripts/
-│   ├── benchmark.py           Latency + hit rate benchmark
-│   ├── rebuild_indexes.py     Manual BM25 rebuild
-│   ├── ingest_sample.py       Batch ingest helper
-│   └── download_sec_filings.py SEC EDGAR downloader
-├── docs/
-│   ├── phase1-explained.md    Ingestion pipeline deep-dive
-│   ├── phase2-explained.md    Query pipeline deep-dive
-│   ├── phase3-explained.md    Observability deep-dive
-│   └── phase4-explained.md    Evaluation + production patterns
-├── PROJECT_DEEP_DIVE.md       Full technical walkthrough (interview prep)
-├── infra/
-│   ├── prometheus/            prometheus.yml
-│   └── grafana/               dashboards + datasources
-├── .github/workflows/
-│   └── eval.yml               CI gate (faithfulness ≥ 0.40, Qwen-calibrated)
-├── docker-compose.yml         All infrastructure services
-└── pyproject.toml             Dependencies + ruff config
+│   ├── golden_dataset.json  # 50 ground-truth Q&A pairs
+│   ├── runner.py            # RAGAS runner: VESSL judge, checkpoints, CI gate
+│   └── report.py            # terminal report formatter
+├── scripts/                 # benchmark, rebuild indexes, ingest helpers, SEC downloader
+├── docs/                    # deep-dive per phase (ingestion, query, observability, eval)
+├── PROJECT_DEEP_DIVE.md     # full technical walkthrough + interview prep
+├── infra/                   # Prometheus config, Grafana dashboards
+├── .github/workflows/       # eval CI gate
+└── docker-compose.yml       # all infrastructure services
 ```
+
+---
 
 ## Phases
 
 | Phase | What Was Built |
 |---|---|
-| Phase 1 | Ingestion pipeline: Docling parse → semantic chunk → Contextual Retrieval enrichment (VESSL A100 + Qwen2.5-14B) → BGE-M3 embed → Qdrant upsert → BM25 rebuild → Postgres persist |
-| Phase 2 | Query pipeline: LangGraph 5-node agent, hybrid dense+BM25 retrieval, RRF fusion, BGE cross-encoder reranker (top-8), VESSL/Groq generation, inline citations, Redis semantic cache |
-| Phase 3 | Observability: Langfuse per-node traces, Prometheus metrics, Grafana dashboard, SSE token streaming |
-| Phase 4 | Evaluation: 50-question RAGAS golden dataset, VESSL judge routing (no TPD limits), checkpoint-aware runner, CI gate, adversarial prompt hardening |
+| **Phase 1** | Ingestion: Docling parse → semantic chunk → Contextual Retrieval enrichment (VESSL A100, one LLM call per chunk) → BGE-M3 embed → Qdrant upsert (batched at 200 to stay under gRPC payload limit) → BM25 rebuild → Postgres |
+| **Phase 2** | Query: LangGraph 5-node agent, hybrid dense+BM25, RRF fusion, BGE cross-encoder rerank (top-8), Qwen/Groq generation, inline citations, Redis semantic cache |
+| **Phase 3** | Observability: Langfuse per-node traces, Prometheus query counters and latency histograms, Grafana dashboard, SSE token streaming |
+| **Phase 4** | Evaluation: 50-question golden dataset, VESSL-routed RAGAS runner (no TPD limits), checkpoint-aware batching, NaN score detection, adversarial prompt hardening, CI gate on faithfulness regression |
