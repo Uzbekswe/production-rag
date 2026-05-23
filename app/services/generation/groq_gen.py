@@ -3,13 +3,31 @@ import re
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
-from groq import AsyncGroq
-
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.schemas.query import Citation, ScoredChunk
 
 logger = get_logger(__name__)
+
+
+def _make_llm_client():
+    """
+    VESSL-first, Groq-fallback — same priority logic as enricher.py.
+
+    VESSL (VESSL_ENDPOINT + VESSL_TOKEN in .env):
+      - OpenAI-compatible vLLM, no TPD limit, GPU billed per hour
+    Groq fallback:
+      - llama-3.1-8b-instant / GENERATION_MODEL, 500K TPD limit
+    """
+    if settings.vessl_endpoint and settings.vessl_token:
+        from openai import AsyncOpenAI
+        logger.info("generator_using_vessl", endpoint=settings.vessl_endpoint)
+        return AsyncOpenAI(
+            base_url=f"{settings.vessl_endpoint}/v1",
+            api_key=settings.vessl_token,
+        ), settings.vessl_model
+    from groq import AsyncGroq
+    return AsyncGroq(api_key=settings.groq_api_key), settings.generation_model
 
 STREAM_SYSTEM_PROMPT = """\
 You are a financial document analyst. Answer questions using ONLY the provided sources.
@@ -54,7 +72,7 @@ class GroqGenerator:
     """
 
     def __init__(self) -> None:
-        self._client = AsyncGroq(api_key=settings.groq_api_key)
+        self._client, self._model = _make_llm_client()
 
     async def generate(
         self, query: str, chunks: list[ScoredChunk]
@@ -63,7 +81,7 @@ class GroqGenerator:
             return GenerationResult(
                 answer="No relevant sources were found in the knowledge base for this query.",
                 citations=[],
-                model_used=settings.generation_model,
+                model_used=self._model,
             )
 
         # Build numbered source blocks
@@ -75,13 +93,13 @@ class GroqGenerator:
 
         logger.info(
             "groq_generate_start",
-            model=settings.generation_model,
+            model=self._model,
             chunks=len(chunks),
             query_len=len(query),
         )
 
         resp = await self._client.chat.completions.create(
-            model=settings.generation_model,
+            model=self._model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_message},
@@ -92,7 +110,7 @@ class GroqGenerator:
         )
 
         raw = resp.choices[0].message.content or ""
-        return self._parse_response(raw, chunks, settings.generation_model)
+        return self._parse_response(raw, chunks, self._model)
 
     def _parse_response(
         self, raw: str, chunks: list[ScoredChunk], model: str
@@ -144,7 +162,7 @@ class GroqGenerator:
         """
         if not chunks:
             yield {"type": "token", "content": "No relevant sources were found in the knowledge base for this query."}
-            yield {"type": "done", "citations": [], "model_used": settings.generation_model}
+            yield {"type": "done", "citations": [], "model_used": self._model}
             return
 
         source_blocks = "\n\n".join(
@@ -154,7 +172,7 @@ class GroqGenerator:
         user_message = f"{source_blocks}\n\nQuestion: {query}"
 
         stream = await self._client.chat.completions.create(
-            model=settings.generation_model,
+            model=self._model,
             messages=[
                 {"role": "system", "content": STREAM_SYSTEM_PROMPT},
                 {"role": "user", "content": user_message},
@@ -176,7 +194,7 @@ class GroqGenerator:
         yield {
             "type": "done",
             "citations": [c.model_dump() for c in citations],
-            "model_used": settings.generation_model,
+            "model_used": self._model,
         }
 
     def _extract_stream_citations(
