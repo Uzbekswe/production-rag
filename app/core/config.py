@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # LLM APIs
-    anthropic_api_key: str
+    anthropic_api_key: str | None = None  # unused — kept for future optional use
     groq_api_key: str
 
     # Infrastructure
@@ -23,10 +23,14 @@ class Settings(BaseSettings):
     # Models
     embedding_model: str = "BAAI/bge-m3"
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
-    generation_model: str = "claude-sonnet-4-6"
-    generation_fallback_model: str = "llama-3.3-70b-versatile"
-    context_enrichment_model: str = "llama-3.3-70b-versatile"
-    eval_judge_model: str = "claude-haiku-4-5-20251001"
+    generation_model: str = "llama-3.3-70b-versatile"        # Groq free tier
+    generation_demo_model: str = "THUDM/LongCite-llama3.1-8b"  # VESSL on-demand
+    context_enrichment_model: str = "llama-3.3-70b-versatile"  # Groq free tier
+    eval_judge_model: str = "llama-3.3-70b-versatile"          # Groq free tier
+    longcite_endpoint: str | None = None                        # set when VESSL instance is up
+    vessl_endpoint: str | None = None   # OpenAI-compatible vLLM endpoint (cloud.vessl.ai workspace)
+    vessl_token: str | None = None      # Bearer token passed as --api-key to vLLM
+    vessl_model: str = "meta-llama/Llama-3.1-8B-Instruct"  # HF model ID served by vLLM
 
     # Chunking
     chunk_size: int = 400

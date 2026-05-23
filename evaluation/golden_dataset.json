@@ -1,9 +1,402 @@
 [
   {
     "id": "gq_001",
-    "question": "What is contextual retrieval and how does it reduce retrieval failures?",
-    "ground_truth": "Contextual retrieval prepends an LLM-generated 80-100 token context blurb to each chunk before indexing, situating each chunk within its document. Anthropic showed this reduces retrieval failures by 67%, from 5.7% to 1.9%.",
-    "category": "system_knowledge",
-    "relevant_chunks": []
+    "question": "What was Apple's total net sales in fiscal year 2024?",
+    "ground_truth": "Apple reported total net sales of $391,035 million in fiscal year 2024, a 2.0% increase from $383,285 million in fiscal year 2023.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_002",
+    "question": "What was Apple's Services segment revenue in fiscal year 2024?",
+    "ground_truth": "Apple's Services segment revenue reached $96,169 million in fiscal year 2024, a record high representing approximately 24.6% of total net sales.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_003",
+    "question": "What was Apple's iPhone revenue in fiscal year 2024?",
+    "ground_truth": "Apple's iPhone revenue was $201,183 million in fiscal year 2024, making it the largest product segment at approximately 51.4% of total net sales.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_004",
+    "question": "What was Apple's gross margin percentage in fiscal year 2024?",
+    "ground_truth": "Apple's gross margin was 46.2% in fiscal year 2024, up from 44.1% in fiscal year 2023, driven by growth in the higher-margin Services segment.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_005",
+    "question": "What was Apple's net income in fiscal year 2024?",
+    "ground_truth": "Apple's net income was $93,736 million in fiscal year 2024.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_006",
+    "question": "What was Apple's diluted earnings per share in fiscal year 2024?",
+    "ground_truth": "Apple's diluted earnings per share was $6.08 in fiscal year 2024.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_007",
+    "question": "What was Apple's Mac revenue in fiscal year 2024?",
+    "ground_truth": "Apple's Mac revenue was $29,984 million in fiscal year 2024.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_008",
+    "question": "What was Apple's iPad revenue in fiscal year 2024?",
+    "ground_truth": "Apple's iPad revenue was $26,694 million in fiscal year 2024.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_009",
+    "question": "What was Apple's Wearables, Home and Accessories revenue in fiscal year 2024?",
+    "ground_truth": "Apple's Wearables, Home and Accessories revenue was $37,005 million in fiscal year 2024.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_010",
+    "question": "What was Apple's research and development expense in fiscal year 2024?",
+    "ground_truth": "Apple's research and development expense was $31,370 million in fiscal year 2024.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_011",
+    "question": "When did Apple's fiscal year 2024 end?",
+    "ground_truth": "Apple's fiscal year 2024 ended on September 28, 2024.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_012",
+    "question": "What was Apple's operating income in fiscal year 2024?",
+    "ground_truth": "Apple's operating income was $123,216 million in fiscal year 2024, representing an operating margin of approximately 31.5%.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_013",
+    "question": "What was Apple's Americas segment revenue in fiscal year 2024?",
+    "ground_truth": "Apple's Americas segment revenue was $167,045 million in fiscal year 2024.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_014",
+    "question": "What was Apple's Greater China revenue in fiscal year 2024?",
+    "ground_truth": "Apple's Greater China revenue was $66,952 million in fiscal year 2024, a decline from $72,559 million in fiscal year 2023, reflecting competitive pressure in the Chinese market.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_015",
+    "question": "What was Apple's Europe segment revenue in fiscal year 2024?",
+    "ground_truth": "Apple's Europe segment revenue was $101,328 million in fiscal year 2024.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_016",
+    "question": "How did Apple's gross margin change between FY2023 and FY2024, and what drove the improvement?",
+    "ground_truth": "Apple's gross margin improved from 44.1% in FY2023 to 46.2% in FY2024. The improvement was primarily driven by the continued growth of the higher-margin Services segment, which reached a record $96,169 million and carries significantly higher margins than hardware products.",
+    "category": "analytical",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_017",
+    "question": "How did Apple's total net sales in FY2024 compare to FY2022 and FY2023?",
+    "ground_truth": "Apple's total net sales were $391,035 million in FY2024, compared to $383,285 million in FY2023 and $394,328 million in FY2022. FY2024 revenue grew 2.0% over FY2023 but remained slightly below the FY2022 peak.",
+    "category": "analytical",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_018",
+    "question": "What percentage of Apple's total revenue did the Services segment represent in FY2024 compared to FY2023?",
+    "ground_truth": "Apple's Services segment represented approximately 24.6% of total net sales in FY2024 ($96,169M of $391,035M), up from approximately 22.2% in FY2023, reflecting the company's strategic shift toward recurring software and service revenue.",
+    "category": "analytical",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_019",
+    "question": "How did Apple's Greater China revenue trend in FY2024 versus FY2023, and what does this indicate?",
+    "ground_truth": "Apple's Greater China revenue declined approximately 7.7% from $72,559 million in FY2023 to $66,952 million in FY2024, indicating increasing competition from local manufacturers such as Huawei and broader macroeconomic pressures in the region.",
+    "category": "analytical",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_020",
+    "question": "What does Apple's shift in revenue mix toward Services imply for its overall financial profile?",
+    "ground_truth": "Apple's growing Services revenue mix, reaching 24.6% of total net sales in FY2024, improves the company's overall gross margin (Services gross margin is approximately 74% vs. ~37% for Products) and reduces dependency on hardware upgrade cycles, creating more predictable recurring revenue streams.",
+    "category": "analytical",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_021",
+    "question": "How does Apple's research and development spending in FY2024 compare to prior years, and what does the trend suggest?",
+    "ground_truth": "Apple's R&D expense was $31,370 million in FY2024. The sustained high level of R&D investment reflects Apple's continued focus on developing new technologies including silicon chips, artificial intelligence capabilities, and next-generation products.",
+    "category": "analytical",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_022",
+    "question": "What were the primary risk factors Apple disclosed related to its business operations in fiscal year 2024?",
+    "ground_truth": "Apple's FY2024 10-K disclosed several key risk factors including: intense competition in all product and service categories, dependence on third-party manufacturers particularly in China, geopolitical tensions affecting international operations, intellectual property litigation, privacy and data security risks, and macroeconomic conditions affecting consumer spending.",
+    "category": "analytical",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_023",
+    "question": "How did Apple's product segment gross margins compare to its Services segment gross margins in FY2024?",
+    "ground_truth": "Apple's Services segment gross margin was approximately 74% in FY2024, significantly higher than the Products segment gross margin of approximately 37%. This disparity explains why growing Services revenue disproportionately improves Apple's overall gross margin.",
+    "category": "analytical",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_024",
+    "question": "What was Apple's capital return activity in fiscal year 2024?",
+    "ground_truth": "Apple returned significant capital to shareholders in FY2024 through share repurchases and dividends. The company has maintained an active buyback program, reducing its diluted share count over time, which contributes to EPS growth even when net income growth is modest.",
+    "category": "analytical",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_025",
+    "question": "What geographic region represented the largest share of Apple's revenue in FY2024, and how did regional performance vary?",
+    "ground_truth": "The Americas was Apple's largest geographic segment at $167,045 million in FY2024. Europe contributed $101,328 million, Greater China $66,952 million (declining year-over-year), Japan approximately $25,052 million, and Rest of Asia Pacific approximately $31,658 million. Americas and Europe grew while Greater China declined.",
+    "category": "analytical",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_026",
+    "question": "How did Apple's iPhone revenue and Services revenue together account for Apple's total FY2024 revenue, and what does this concentration mean for business risk?",
+    "ground_truth": "iPhone revenue ($201,183M) and Services revenue ($96,169M) together totaled $297,352 million, representing approximately 76% of Apple's total FY2024 net sales of $391,035 million. This concentration means Apple's financial performance is heavily dependent on iPhone demand cycles and the continued growth of its Services ecosystem.",
+    "category": "multi_hop",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_027",
+    "question": "What was Apple's effective tax rate in FY2024 and how did it affect net income relative to operating income?",
+    "ground_truth": "Apple's operating income was $123,216 million in FY2024 while net income was $93,736 million, implying a significant tax and other expense impact. Apple's effective tax rate reflects its global operations and tax planning strategies across international jurisdictions.",
+    "category": "multi_hop",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_028",
+    "question": "If Apple's Services gross margin is approximately 74% and Services revenue was $96,169 million in FY2024, approximately how much did Services contribute to total gross profit?",
+    "ground_truth": "At approximately 74% gross margin, Apple's Services segment contributed approximately $71,165 million in gross profit from its $96,169 million in FY2024 revenue. This represents a substantial portion of Apple's total gross profit, demonstrating the segment's outsized profitability contribution relative to its revenue share.",
+    "category": "multi_hop",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_029",
+    "question": "Combining Apple's iPhone, Mac, iPad, and Wearables revenues, what was the total Products segment revenue in FY2024 and how did it compare to the Services segment?",
+    "ground_truth": "Apple's total Products segment revenue in FY2024 was approximately $294,866 million (iPhone $201,183M + Mac $29,984M + iPad $26,694M + Wearables $37,005M), compared to Services revenue of $96,169 million. Products represented approximately 75.4% of total revenue while Services represented 24.6%.",
+    "category": "multi_hop",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_030",
+    "question": "How did Apple's R&D expense as a percentage of revenue in FY2024 reflect its investment intensity compared to its operating margin?",
+    "ground_truth": "Apple's R&D expense of $31,370 million represented approximately 8.0% of total net sales of $391,035 million in FY2024. With an operating margin of approximately 31.5% ($123,216M operating income), Apple maintained both high investment intensity in R&D and strong profitability, reflecting its scale advantages and premium pricing power.",
+    "category": "multi_hop",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_031",
+    "question": "What manufacturing and supply chain risks did Apple disclose in its FY2024 10-K, and how might they affect revenue?",
+    "ground_truth": "Apple's FY2024 10-K disclosed supply chain concentration risks, particularly dependence on manufacturing partners in China. Disruptions from geopolitical tensions, natural disasters, or component shortages could delay product availability, reduce sales in peak periods like the iPhone launch cycle, and negatively impact revenue and gross margins.",
+    "category": "multi_hop",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_032",
+    "question": "What was Apple's total revenue across its three largest geographic segments in FY2024?",
+    "ground_truth": "Apple's three largest geographic segments in FY2024 were Americas ($167,045M), Europe ($101,328M), and Greater China ($66,952M), totaling approximately $335,325 million, or approximately 85.8% of Apple's total net sales of $391,035 million.",
+    "category": "multi_hop",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_033",
+    "question": "What competitive risks did Apple identify in its FY2024 10-K, and how did these relate to the Greater China revenue decline?",
+    "ground_truth": "Apple's FY2024 10-K identified intense competition as a key risk, including competition from Android device manufacturers with significantly lower price points. In Greater China specifically, Apple faced resurgent competition from Huawei following its return to high-end smartphones, contributing to the 7.7% decline in Greater China revenue from $72,559M in FY2023 to $66,952M in FY2024.",
+    "category": "multi_hop",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_034",
+    "question": "What was Apple's revenue growth rate in FY2024 compared to FY2023, and how did operating income growth compare?",
+    "ground_truth": "Apple's total net sales grew approximately 2.0% from $383,285 million in FY2023 to $391,035 million in FY2024. Operating income grew from approximately $114,301 million to $123,216 million, representing approximately 7.8% growth — significantly outpacing revenue growth due to margin expansion, particularly from the high-margin Services segment.",
+    "category": "multi_hop",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_035",
+    "question": "Which Apple product categories declined in revenue between FY2023 and FY2024?",
+    "ground_truth": "Based on Apple's FY2024 10-K revenue figures, iPhone revenue remained relatively stable while Wearables, Home and Accessories saw a decline compared to prior years. Greater China geographic revenue also declined from $72,559M in FY2023 to $66,952M in FY2024.",
+    "category": "multi_hop",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_036",
+    "question": "What was Apple's revenue guidance for fiscal year 2025?",
+    "ground_truth": "Apple does not provide formal revenue guidance. The company stopped issuing financial guidance during the COVID-19 pandemic in 2020 and has not resumed the practice. Apple's 10-K filings contain historical financial data and risk factors but no forward revenue projections.",
+    "category": "adversarial",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_037",
+    "question": "How many iPhones did Apple sell in fiscal year 2024?",
+    "ground_truth": "Apple does not disclose iPhone unit sales. The company stopped reporting unit sales data for iPhone, iPad, and Mac in its fiscal year 2019 financial results, stating that unit sales are no longer a primary metric for understanding business performance. Only revenue figures by product category are disclosed.",
+    "category": "adversarial",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_038",
+    "question": "What was Apple's stock price on the last day of fiscal year 2024?",
+    "ground_truth": "Apple's 10-K filing does not disclose the daily stock price. The 10-K contains per-share financial data such as earnings per share and dividends, but does not report the closing stock price on any specific date. Stock price data would need to be obtained from financial market data sources.",
+    "category": "adversarial",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_039",
+    "question": "What did Tim Cook say about Apple Intelligence in the Q4 FY2024 earnings call?",
+    "ground_truth": "The question cannot be answered from Apple's 10-K filing. Earnings call transcripts are separate from SEC filings. The 10-K filed for fiscal year 2024 contains the company's annual financial statements, risk factors, and business descriptions, but does not include earnings call commentary or executive statements from conference calls.",
+    "category": "adversarial",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_040",
+    "question": "What was NVIDIA's total revenue in fiscal year 2019?",
+    "ground_truth": "This question cannot be answered from the available documents. The knowledge base contains NVIDIA 10-K filings for fiscal years 2024 and 2025 only. NVIDIA's fiscal year 2019 financial data is not present in the ingested documents.",
+    "category": "adversarial",
+    "company": "NVDA",
+    "fiscal_year": "2019"
+  },
+  {
+    "id": "gq_041",
+    "question": "Who are Apple's top five individual shareholders by percentage ownership?",
+    "ground_truth": "Apple's 10-K filing does not disclose the names or percentages of individual shareholders. The proxy statement (DEF 14A) contains beneficial ownership tables for directors and executives, but specific shareholder percentages for the largest institutional holders would be found in 13F filings, not the 10-K.",
+    "category": "adversarial",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_042",
+    "question": "What was Apple's share price target set by Wall Street analysts in fiscal year 2024?",
+    "ground_truth": "Analyst price targets are not disclosed in Apple's 10-K annual report. The 10-K is a regulatory filing containing audited financial statements, risk factors, and business descriptions. Analyst estimates and price targets are external opinions published by investment banks and research firms, not by Apple.",
+    "category": "adversarial",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_043",
+    "question": "What was Apple's gross margin percentage in fiscal year 2024, and how did this compare to the operating margin?",
+    "ground_truth": "Apple's gross margin was approximately 46.2% in fiscal year 2024. Operating income was $123,216 million on total net sales of $391,035 million, giving an operating margin of approximately 31.5%. The gap between gross margin (46.2%) and operating margin (31.5%) reflects Apple's operating expenses, primarily R&D ($31,370M) and selling, general and administrative expenses.",
+    "category": "analytical",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_044",
+    "question": "What was Apple's selling, general and administrative expense in fiscal year 2024?",
+    "ground_truth": "Apple's selling, general and administrative expense was approximately $26,097 million in fiscal year 2024, reflecting costs of the company's retail stores, corporate functions, and sales operations globally.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_045",
+    "question": "What were the primary components of Apple's operating expenses beyond cost of sales in fiscal year 2024?",
+    "ground_truth": "Apple's operating expenses beyond cost of sales in FY2024 consisted of two main categories: research and development ($31,370 million) and selling, general and administrative expenses (approximately $26,097 million), totaling approximately $57,467 million in total operating expenses.",
+    "category": "analytical",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_046",
+    "question": "What legal and regulatory risks did Apple disclose in its FY2024 10-K?",
+    "ground_truth": "Apple's FY2024 10-K disclosed legal and regulatory risks including antitrust investigations and litigation related to the App Store in the United States, European Union, and other jurisdictions; intellectual property disputes; privacy regulation compliance requirements including GDPR in Europe; and the Digital Markets Act in the EU which may require changes to its business practices.",
+    "category": "analytical",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_047",
+    "question": "What was Apple's Japan segment revenue in fiscal year 2024?",
+    "ground_truth": "Apple's Japan segment revenue was approximately $25,052 million in fiscal year 2024.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_048",
+    "question": "How did Apple's total operating expenses (excluding cost of sales) grow relative to revenue in FY2024?",
+    "ground_truth": "Apple's total operating expenses excluding cost of sales were approximately $57,467 million in FY2024 (R&D $31,370M + SG&A ~$26,097M), representing approximately 14.7% of total net sales of $391,035 million. This reflects Apple's disciplined cost management which, combined with the growing Services mix, drove operating income growth of approximately 7.8% on just 2.0% revenue growth.",
+    "category": "multi_hop",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_049",
+    "question": "What was Apple's Rest of Asia Pacific segment revenue in fiscal year 2024 and how did all five geographic segments contribute to total revenue?",
+    "ground_truth": "Apple's Rest of Asia Pacific revenue was approximately $30,658 million in FY2024. The five segments contributed as follows: Americas $167,045M (42.7%), Europe $101,328M (25.9%), Greater China $66,952M (17.1%), Japan $25,052M (6.4%), and Rest of Asia Pacific $30,658M (7.8%), totaling $391,035M.",
+    "category": "multi_hop",
+    "company": "AAPL",
+    "fiscal_year": "2024"
+  },
+  {
+    "id": "gq_050",
+    "question": "What was Apple's FY2024 annual report date and who were the principal officers signing the filing?",
+    "ground_truth": "Apple's FY2024 Form 10-K was filed with the SEC on November 1, 2024, for the fiscal year ended September 28, 2024. The filing was signed by Timothy D. Cook (Chief Executive Officer and Director) and Luca Maestri (Senior Vice President and Chief Financial Officer), along with other directors and officers of Apple Inc.",
+    "category": "factual",
+    "company": "AAPL",
+    "fiscal_year": "2024"
   }
 ]

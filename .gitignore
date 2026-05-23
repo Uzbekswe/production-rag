@@ -32,5 +32,16 @@ qdrant_data/
 .vscode/settings.json
 .idea/
 
+# Generated artifacts — rebuilt automatically from Postgres on startup
+data/bm25_index.pkl
+data/uploads/
+
+# Downloaded source documents (SEC filings, re-downloadable via scripts/download_sec_filings.py)
+data/sample_docs/
+
+# Eval and benchmark output (run locally, committed scores go in STATUS.md)
+results.json
+bench.json
+
 # OS
 .DS_Store

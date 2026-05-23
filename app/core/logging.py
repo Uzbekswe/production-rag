@@ -13,7 +13,6 @@ def configure_logging() -> None:
         processors=[
             structlog.contextvars.merge_contextvars,
             structlog.stdlib.add_log_level,
-            structlog.stdlib.add_logger_name,
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.processors.StackInfoRenderer(),
             structlog.dev.ConsoleRenderer() if not settings.is_production
@@ -26,4 +25,6 @@ def configure_logging() -> None:
 
 
 def get_logger(name: str) -> structlog.BoundLogger:
-    return structlog.get_logger(name)
+    # Bind the module name explicitly so it appears in every log event.
+    # (add_logger_name requires stdlib LoggerFactory; we use PrintLoggerFactory.)
+    return structlog.get_logger().bind(logger=name)
