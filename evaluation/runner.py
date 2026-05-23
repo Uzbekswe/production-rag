@@ -22,6 +22,7 @@ Usage:
 import argparse
 import asyncio
 import json
+import math
 import os
 import sys
 import time
@@ -152,11 +153,21 @@ def build_ragas_dataset(golden: list[dict], responses: list[dict]):
     return EvaluationDataset(samples=samples)
 
 
+def _is_valid(v) -> bool:
+    """True iff v is a real numeric score (not None, not float NaN)."""
+    return v is not None and not (isinstance(v, float) and math.isnan(v))
+
+
+def _sanitize(v):
+    """Normalise float('nan') → None so downstream None-checks are reliable."""
+    return None if not _is_valid(v) else v
+
+
 def _mean_score(val) -> float | None:
-    """Aggregate a per-sample score list → mean, ignoring None failures."""
+    """Aggregate a per-sample score list → mean, ignoring None/NaN failures."""
     if isinstance(val, (int, float)):
-        return float(val)
-    scores = [v for v in val if v is not None]
+        return float(val) if _is_valid(val) else None
+    scores = [v for v in val if _is_valid(v)]
     return round(sum(scores) / len(scores), 4) if scores else None
 
 
@@ -249,9 +260,11 @@ def run_ragas_batch(
             "idx":               global_idx,
             "question":          batch_golden[local_i]["question"],
             "category":          batch_golden[local_i].get("category", "?"),
-            "faithfulness":      faith_scores[local_i]   if local_i < len(faith_scores)   else None,
-            "context_recall":    recall_scores[local_i]  if local_i < len(recall_scores)  else None,
-            "factual_correctness": factual_scores[local_i] if local_i < len(factual_scores) else None,
+            # _sanitize: RAGAS returns float('nan') for failed metric calls, not None.
+            # Normalise to None so all downstream `is not None` checks are reliable.
+            "faithfulness":      _sanitize(faith_scores[local_i])   if local_i < len(faith_scores)   else None,
+            "context_recall":    _sanitize(recall_scores[local_i])  if local_i < len(recall_scores)  else None,
+            "factual_correctness": _sanitize(factual_scores[local_i]) if local_i < len(factual_scores) else None,
         }
         records.append(rec)
 
@@ -281,7 +294,7 @@ def run_all_batches(
     total_pending = len(pending_indices)
     total_batches = (total_pending + batch_size - 1) // batch_size
     print(f"\nRunning RAGAS evaluation — {total_pending} samples in {total_batches} batches of {batch_size}")
-    print(f"  Judge: Groq llama-3.1-8b-instant | Checkpoint: {checkpoint_path}\n")
+    print(f"  Checkpoint: {checkpoint_path}\n")
 
     run_start = time.time()
     for batch_num in range(total_batches):
@@ -300,9 +313,9 @@ def run_all_batches(
             )
             all_records.extend(records)
             elapsed = time.time() - batch_start
-            scored   = sum(1 for r in records if r.get("faithfulness") is not None)
-            failed   = len(records) - scored
-            print(f"    ✓ {scored} scored, {failed} failed  [{elapsed:.0f}s]")
+            scored = sum(1 for r in records if all(r.get(m) is not None for m in METRICS))
+            failed = len(records) - scored
+            print(f"    ✓ {scored} fully scored, {failed} partial/failed  [{elapsed:.0f}s]")
         except Exception as e:
             elapsed = time.time() - batch_start
             print(f"    ✗ Batch {batch_num+1} failed after {elapsed:.0f}s: {e}")
@@ -327,7 +340,7 @@ def aggregate_scores(all_records: list[dict]) -> dict:
     for rec in all_records:
         for m in METRICS:
             val = rec.get(m)
-            if val is not None:
+            if _is_valid(val):
                 per_metric[m].append(float(val))
             else:
                 failed_per_metric[m] += 1
@@ -423,8 +436,8 @@ def main() -> None:
 
     # Step 4: aggregate scores
     agg_scores, per_metric_lists, failed_counts = aggregate_scores(all_records)
-    scored_count  = len([r for r in all_records if r.get("faithfulness") is not None])
-    failed_count  = len(all_records) - scored_count
+    scored_count = sum(1 for r in all_records if all(r.get(m) is not None for m in METRICS))
+    failed_count = len(all_records) - scored_count
 
     runtime_min = (time.time() - t0) / 60
     metrics = {
