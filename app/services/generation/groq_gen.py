@@ -48,6 +48,17 @@ Rules:
 - Every factual claim must have an inline [Source N] citation.
 - cited_text must be a verbatim excerpt from the source (not a paraphrase).
 - If no source contains the answer, set answer to "The provided sources do not contain enough information to answer this question." and citations to [].
+- Do NOT speculate, infer, or use knowledge not present in the provided sources.
+
+Non-disclosure rule (critical for accuracy):
+Certain categories of information are intentionally not disclosed in 10-K annual filings.
+If a question asks for any of the following, state explicitly that the company does not
+disclose this information — do not guess or infer from other data:
+- Forward-looking revenue, earnings, or sales guidance (companies stopped issuing guidance)
+- iPhone, iPad, or Mac unit sales (Apple ceased reporting unit sales after FY2018)
+- Daily, weekly, or point-in-time stock prices (not included in 10-K filings)
+- Intra-quarter financial results or real-time data of any kind
+Answer for these: "This information is not disclosed in the company's 10-K annual filing."
 """
 
 

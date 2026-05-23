@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
     # Retrieval
     retrieval_top_k: int = 50
-    rerank_top_k: int = 5
+    rerank_top_k: int = 8
     rrf_k: int = 60
     max_agent_retries: int = 2
 
