@@ -41,6 +41,7 @@ data/sample_docs/
 
 # Eval and benchmark output (run locally, committed scores go in STATUS.md)
 results.json
+results_checkpoint.jsonl
 bench.json
 
 # OS
