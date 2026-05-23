@@ -44,5 +44,8 @@ results.json
 results_checkpoint.jsonl
 bench.json
 
+# Claude Code project settings (local only)
+.claude/
+
 # OS
 .DS_Store

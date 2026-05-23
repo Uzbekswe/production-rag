@@ -1,14 +1,36 @@
 # Agentic RAG for SEC 10-K Filings
 
+[![Eval CI](https://github.com/Uzbekswe/production-rag/actions/workflows/eval.yml/badge.svg)](https://github.com/Uzbekswe/production-rag/actions/workflows/eval.yml)
+![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
+![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
+![RAGAS Faithfulness](https://img.shields.io/badge/RAGAS%20faithfulness-0.474-brightgreen)
+
 A production-grade Retrieval-Augmented Generation system that answers questions about SEC annual reports using hybrid search, a LangGraph reasoning agent, and a fully automated RAGAS evaluation pipeline.
 
 Built in 4 phases to demonstrate real-world ML engineering: not just "make a RAG chatbot", but instrument it, measure it, find what breaks, and fix it with evidence.
 
 ---
 
+## Table of Contents
+
+- [The Problem](#the-problem)
+- [Results](#results)
+- [Architecture](#architecture)
+- [Key Engineering Decisions](#key-engineering-decisions)
+- [What I Would Improve Next](#what-i-would-improve-next)
+- [Stack](#stack)
+- [Quick Start](#quick-start)
+- [API Reference](#api-reference)
+- [Run Evaluation](#run-evaluation)
+- [Service URLs](#service-urls)
+- [Project Structure](#project-structure)
+- [Phases](#phases)
+
+---
+
 ## The Problem
 
-SEC 10-K filings are dense, structured, and full of intentional gaps. Apple's 2024 annual report is 88 pages. Answering "What was Apple's gross margin improvement between FY2023 and FY2024, and how did it compare to the Services segment margin trend?" requires:
+SEC 10-K filings are dense, structured, and full of intentional gaps. Apple's 2024 annual report is 88 pages. Answering *"What was Apple's gross margin improvement between FY2023 and FY2024, and how did it compare to the Services segment margin trend?"* requires:
 
 - Finding the right numbers across multiple sections of the document
 - Understanding that "gross margin %" and "gross margin dollars" are different things
@@ -17,7 +39,7 @@ SEC 10-K filings are dense, structured, and full of intentional gaps. Apple's 20
 
 Naive RAG — embed, chunk, nearest-neighbour retrieval, generate — fails on all of these. This project builds the infrastructure to handle them properly.
 
-**Corpus:** 10 SEC 10-K filings — Apple, Google, Meta, Microsoft, NVIDIA — FY2024 and FY2025.
+**Corpus:** 10 SEC 10-K filings — Apple, Google, Meta, Microsoft, NVIDIA — FY2024 and FY2025.  
 **Scale:** 12,927 chunks, 12,927 Qdrant vectors, 3 LLMs across ingestion / generation / evaluation.
 
 ---
@@ -30,12 +52,21 @@ All three RAGAS metrics improved between baseline and final run. Every improveme
 |---|---|---|---|---|
 | **Faithfulness** | 0.406 | **0.474** | +16.8% | adversarial prompt hallucination |
 | **Context Recall** | 0.243 | **0.277** | +13.9% | reranker top-K too aggressive |
-| **Factual Correctness** | 0.265 | **0.299** | +13.0% | stale "I don't know" answers in cache |
+| **Factual Correctness** | 0.265 | **0.299** | +13.0% | stale "I don't know" answers in Redis cache |
 | Samples scored | 45 / 50 | **50 / 50** | +5 | NaN detection fix in runner |
 
 **CI gate: PASSED** — `faithfulness ≥ 0.40` (Qwen-calibrated; GPT-4 equivalent ≈ `faithfulness ≥ 0.75`).
 
 *Judge model: Qwen2.5-14B-Instruct on VESSL A100 (no API rate limits). Three metrics: faithfulness, context recall, factual correctness. 50 golden questions across factual / analytical / multi-hop / adversarial categories.*
+
+### Per-category breakdown (final run)
+
+| Category | N | Faithfulness | Context Recall | Factual Correctness |
+|---|---|---|---|---|
+| factual | 18 | 0.426 | 0.352 | 0.266 |
+| analytical | 13 | 0.499 | 0.164 | 0.285 |
+| multi_hop | 12 | 0.429 | 0.278 | 0.257 |
+| adversarial | 7 | 0.143 | 0.048 | 0.239 |
 
 ---
 
@@ -183,7 +214,7 @@ All 50 current golden questions are AAPL-focused. A production evaluation set wo
 
 ### 3. Stronger judge model for calibrated evaluation
 
-Qwen2.5-14B is directionally valid (run-to-run comparisons are meaningful) but scores ~50–60% of GPT-4 for equivalent system quality. The CI gate is calibrated accordingly (`faithfulness ≥ 0.40`), but this makes it hard to compare against published benchmarks. The right upgrade path, in order of effort: Qwen2.5-72B-AWQ on the same A100 (fits at ~36GB VRAM), then Prometheus-2-7B (7B model fine-tuned specifically to match GPT-4 judgment quality on a held-out eval benchmark).
+Qwen2.5-14B is directionally valid (run-to-run comparisons are meaningful) but scores ~50–60% of GPT-4 for equivalent system quality. The CI gate is calibrated accordingly (`faithfulness ≥ 0.40`), but this makes it hard to compare against published benchmarks. The right upgrade path, in order of effort: Qwen2.5-72B-AWQ on the same A100 (fits at ~36GB VRAM), then Prometheus-2-7B (7B model fine-tuned specifically to match GPT-4 judgment quality).
 
 ### 4. Re-ranking diversity to reduce chunk redundancy
 
@@ -223,31 +254,46 @@ BGE-M3 is a strong general-purpose multilingual embedding model, but it was not 
 ```bash
 # 1. Clone and configure
 git clone https://github.com/Uzbekswe/production-rag.git && cd production-rag
-cp .env.example .env   # add GROQ_API_KEY; optionally VESSL_ENDPOINT + VESSL_TOKEN
+cp .env.example .env
+# Fill in GROQ_API_KEY (required). Add VESSL_ENDPOINT + VESSL_TOKEN to avoid Groq TPD limits.
 
 # 2. Start infrastructure
-docker compose up -d   # Postgres, Qdrant, Redis, Langfuse, Prometheus, Grafana
+docker compose up -d
+# Starts: Postgres, Qdrant, Redis, Langfuse, Prometheus, Grafana
 
 # 3. Install dependencies
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
-# 4. Start the API
+# 4. Download SEC filings (optional — corpus already ingested into Docker volumes)
+python scripts/download_sec_filings.py
+
+# 5. Start the API
 uvicorn app.main:app --reload
 # Startup log: startup_complete  qdrant_vectors=12927  bm25_chunks=12927  bm25_ready=True
 ```
 
-## Query the API
+> **No data ingestion needed.** The 12,927 chunks are stored in Docker volumes (Qdrant + Postgres). `docker compose up -d` restores the full corpus. Re-ingest only if you add new documents.
+
+---
+
+## API Reference
+
+All endpoints are documented interactively at `http://localhost:8000/docs`.
+
+### `POST /api/v1/query`
+
+Answer a question against the 10-K corpus.
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/query \
   -H "Content-Type: application/json" \
-  -d '{"query": "What was Apple gross margin percentage in fiscal year 2024 and how did it change from 2023?"}'
+  -d '{"query": "What was Apple gross margin percentage in fiscal year 2024?"}'
 ```
 
 ```json
 {
-  "answer": "Apple's gross margin was 46.2% in FY2024, up from 44.1% in FY2023 [Source 1]. The improvement was driven primarily by Services segment margin expansion, partially offset by product mix shift [Source 2].",
+  "answer": "Apple's gross margin was 46.2% in FY2024, up from 44.1% in FY2023 [Source 1]. The improvement was driven primarily by Services segment margin expansion [Source 2].",
   "citations": [
     {"source_id": 1, "filename": "AAPL_10K_2024.pdf", "page_num": 31, "cited_text": "..."},
     {"source_id": 2, "filename": "AAPL_10K_2024.pdf", "page_num": 33, "cited_text": "..."}
@@ -257,28 +303,78 @@ curl -X POST http://localhost:8000/api/v1/query \
 }
 ```
 
+### `GET /api/v1/stream`
+
+Token-by-token SSE streaming for the same query schema.
+
+```bash
+curl -N "http://localhost:8000/api/v1/stream?query=What+was+Apple+revenue+2024"
+```
+
+### `POST /api/v1/ingest`
+
+Ingest a new PDF or HTML filing into the corpus. Background task — returns immediately with a job ID.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/ingest \
+  -F "file=@TSLA_10K_2024.pdf"
+```
+
+### `GET /api/v1/documents`
+
+List all ingested documents with chunk count and ingestion timestamp.
+
+### `GET /api/v1/eval/history`
+
+Retrieve stored evaluation run history from Postgres (all RAGAS metric sets, CI gate result per run).
+
+### `GET /metrics`
+
+Prometheus metrics endpoint: query counts, latency histograms, cache hit rate.
+
+### `GET /health`
+
+```json
+{
+  "status": "startup_complete",
+  "qdrant_vectors": 12927,
+  "bm25_chunks": 12927,
+  "bm25_ready": true
+}
+```
+
+---
+
 ## Run Evaluation
 
 ```bash
-# Full 50-question RAGAS eval (~14 min with VESSL judge)
+# Full 50-question RAGAS eval (~14 min with VESSL judge, ~$0.40 GPU cost)
 python evaluation/runner.py --output results.json --save
 
-# Resume after any failure — checkpoint-aware, no re-scoring
+# Resume after any failure — checkpoint-aware, skips already-scored samples
 python evaluation/runner.py --output results.json --save
 
 # Category deep-dive
 python evaluation/runner.py --category adversarial
+python evaluation/runner.py --category analytical --limit 5
+
+# Print results table from an existing run
+python evaluation/report.py results.json
 ```
+
+**Judge routing:** set `VESSL_ENDPOINT` + `VESSL_TOKEN` in `.env` to use Qwen2.5-14B on VESSL (recommended). Falls back to Groq if unset — subject to 100K tokens/day limit, which a full run can exhaust.
+
+---
 
 ## Service URLs
 
-| Service | URL |
-|---|---|
-| API (Swagger) | http://localhost:8000/docs |
-| Prometheus metrics | http://localhost:8000/metrics |
-| Langfuse traces | http://localhost:3000 |
-| Grafana dashboard | http://localhost:3001 (admin / admin) |
-| Qdrant UI | http://localhost:6333/dashboard |
+| Service | URL | Credentials |
+|---|---|---|
+| API (Swagger) | http://localhost:8000/docs | — |
+| Prometheus metrics | http://localhost:8000/metrics | — |
+| Langfuse traces | http://localhost:3000 | from `.env` |
+| Grafana dashboard | http://localhost:3001 | admin / admin |
+| Qdrant UI | http://localhost:6333/dashboard | — |
 
 ---
 
@@ -294,18 +390,26 @@ production-rag/
 │   │   ├── retrieval/       # dense (Qdrant), sparse (BM25), RRF fusion, reranker
 │   │   ├── generation/      # VESSL/Groq generator, citation extraction, router
 │   │   └── agent/           # LangGraph graph + 5 nodes with Langfuse spans
+│   ├── models/              # SQLAlchemy ORM models
 │   ├── repositories/        # Postgres: documents, chunks, eval_runs
 │   └── workers/             # background ingestion task
 ├── evaluation/
 │   ├── golden_dataset.json  # 50 ground-truth Q&A pairs
 │   ├── runner.py            # RAGAS runner: VESSL judge, checkpoints, CI gate
 │   └── report.py            # terminal report formatter
-├── scripts/                 # benchmark, rebuild indexes, ingest helpers, SEC downloader
+├── scripts/
+│   ├── benchmark.py         # latency + hit rate benchmark
+│   ├── download_sec_filings.py  # SEC EDGAR downloader
+│   ├── ingest_sample.py     # batch ingest helper
+│   └── rebuild_indexes.py   # manual BM25 + Qdrant rebuild
 ├── docs/                    # deep-dive per phase (ingestion, query, observability, eval)
 ├── PROJECT_DEEP_DIVE.md     # full technical walkthrough + interview prep
+├── STATUS.md                # final eval scores, ingestion summary
 ├── infra/                   # Prometheus config, Grafana dashboards
-├── .github/workflows/       # eval CI gate
-└── docker-compose.yml       # all infrastructure services
+├── .github/workflows/       # eval CI gate (eval.yml), test runner (test.yml)
+├── .env.example             # environment variable template
+├── docker-compose.yml       # all infrastructure services
+└── pyproject.toml           # dependencies + ruff config
 ```
 
 ---
