@@ -73,7 +73,7 @@ All three RAGAS metrics improved between baseline and final run. Every improveme
 
 ```
                     ┌─────────────────────────────────────────────┐
-                    │              FastAPI (uvicorn)               │
+                    │              FastAPI (uvicorn)              │
                     │  POST /api/v1/ingest   POST /api/v1/query   │
                     │  GET  /api/v1/stream   GET  /metrics        │
                     └────────────┬──────────────────┬─────────────┘
@@ -97,18 +97,18 @@ All three RAGAS metrics improved between baseline and final run. Every improveme
        │                              │    ┌────────▼──────────────────────────┐
        │  Langfuse  (per-node traces) │    │         Hybrid Retrieval          │
        │  Prometheus (metrics)        │    │                                   │
-       │  Grafana   (dashboard)       │    │  Dense:  BGE-M3 → Qdrant ANN     │
+       │  Grafana   (dashboard)       │    │  Dense:  BGE-M3 → Qdrant ANN      │
        │  SSE       (token streaming) │    │  Sparse: BM25 keyword index       │
-       └──────────────────────────────┘    │  Fusion: Reciprocal Rank (k=60)  │
-                                           │  Rerank: BGE-reranker-v2-m3      │
-       ┌──────────────────────────────┐    │  Top-K:  8 chunks to generator   │
+       └──────────────────────────────┘    │  Fusion: Reciprocal Rank (k=60)   │
+                                           │  Rerank: BGE-reranker-v2-m3       │
+       ┌──────────────────────────────┐    │  Top-K:  8 chunks to generator    │
        │      Evaluation Harness      │    └────────┬──────────────────────────┘
        │                              │             │
        │  50 golden Q&A pairs         │    ┌────────▼──────────────────────────┐
        │  RAGAS (3 LLM-based metrics) │    │    Generation + Citations         │
        │  VESSL judge (no TPD limits) │    │                                   │
-       │  Checkpoint-aware runner     │    │  VESSL Qwen2.5-14B (primary)     │
-       │  CI gate (GitHub Actions)    │    │  Groq llama-3.1-8b (fallback)    │
+       │  Checkpoint-aware runner     │    │  VESSL Qwen2.5-14B (primary)      │
+       │  CI gate (GitHub Actions)    │    │  Groq llama-3.1-8b (fallback)     │
        └──────────────────────────────┘    │  Redis semantic cache (≥0.95 cos) │
                                            └───────────────────────────────────┘
 ```
