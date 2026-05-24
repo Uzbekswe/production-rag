@@ -4,6 +4,9 @@
 ![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
 ![RAGAS Faithfulness](https://img.shields.io/badge/RAGAS%20faithfulness-0.474-brightgreen)
 
+<img width="1672" height="941" alt="image" src="https://github.com/user-attachments/assets/39542c78-2a8f-44b0-b20a-5278afb8a5a5" />
+
+
 A production-grade Retrieval-Augmented Generation system that answers questions about SEC annual reports using hybrid search, a LangGraph reasoning agent, and a fully automated RAGAS evaluation pipeline.
 
 Built in 4 phases to showcase real-world ML engineering through instrumentation, evaluation, failure analysis, and evidence-driven iteration.
