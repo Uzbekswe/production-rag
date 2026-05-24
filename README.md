@@ -95,7 +95,7 @@ All three RAGAS metrics improved between baseline and final run. Every improveme
        ┌──────────────────────────────┐    └────────┬──────────────────────────┘
        │      Observability Stack     │             │
        │                              │    ┌────────▼──────────────────────────┐
-       │  Langfuse  (per-node traces) │    │         Hybrid Retrieval          │
+       │  Langfuse  (per-node traces) │    │      Hybrid Retrieval Engine      │
        │  Prometheus (metrics)        │    │                                   │
        │  Grafana   (dashboard)       │    │  Dense:  BGE-M3 → Qdrant ANN      │
        │  SSE       (token streaming) │    │  Sparse: BM25 keyword index       │
