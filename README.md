@@ -6,8 +6,8 @@
 
 A production-grade Retrieval-Augmented Generation system that answers questions about SEC annual reports using hybrid search, a LangGraph reasoning agent, and a fully automated RAGAS evaluation pipeline.
 
-**Built in 4 phases to showcase real-world ML engineering through instrumentation, evaluation, failure analysis, and evidence-driven iteration.
-**---
+Built in 4 phases to showcase real-world ML engineering through instrumentation, evaluation, failure analysis, and evidence-driven iteration.
+
 
 ## Table of Contents
 
