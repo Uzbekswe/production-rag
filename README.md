@@ -119,7 +119,7 @@ All three RAGAS metrics improved between baseline and final run. Every improveme
 3. RRF fusion merges ranked lists from both modalities without score normalization
 4. BGE cross-encoder reranks top-50 candidates → top-8 passed to the generator
 5. Sufficiency check: if top chunks don't cover the query, agent rewrites the query and retries (max 2)
-6. Qwen2.5-14B (VESSL) or Groq generates a JSON response with inline `[Source N]` citations
+6. Qwen2.5-14B (using VESSL AI Cloud) or Groq API generates a JSON response with inline `[Source N]` citations
 7. Citation metadata (filename, page, verbatim excerpt) mapped back to chunk records and returned
 8. Langfuse captures the full trace; Prometheus increments latency histogram
 
