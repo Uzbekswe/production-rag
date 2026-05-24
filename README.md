@@ -1,6 +1,5 @@
 # Agentic RAG for SEC 10-K Filings
 
-[![Eval CI](https://github.com/Uzbekswe/production-rag/actions/workflows/eval.yml/badge.svg)](https://github.com/Uzbekswe/production-rag/actions/workflows/eval.yml)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
 ![RAGAS Faithfulness](https://img.shields.io/badge/RAGAS%20faithfulness-0.474-brightgreen)
